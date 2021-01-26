@@ -1,0 +1,12 @@
+[package]
+name = "retryiter"
+version = "0.1.0"
+authors = ["Vigneshwaran P <hello@vigneshwaran.me>"]
+edition = "2018"
+description = "A simple wrapper lib on top of rust Iterator with added retry support"
+license-file = "LICENSE"
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+uuid = { version = "0.8.2", features = [ "v4"] }
+thiserror = "1"
