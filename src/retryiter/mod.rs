@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use item::ItemImpl;
+use item::Item;
 use tracker::Tracker;
 
 pub mod tracker;
@@ -47,7 +47,7 @@ impl<'a, Itr, V, Err, T> Iterator for &'a mut RetryIterImpl<V, Itr, Err, T>
         Itr: Iterator<Item=V>,
         T: Tracker<V, Err> + Clone
 {
-    type Item = ItemImpl<'a, V, Err, T>;
+    type Item = Item<'a, V, Err, T>;
 
     /// Advances the iterator and returns the next value.
     ///
@@ -116,7 +116,7 @@ impl<'a, Itr, V, Err, T> Iterator for &'a mut RetryIterImpl<V, Itr, Err, T>
                 self.tracker.add_item_to_in_progress(
                     item_id, item.clone(), attempt,
                 );
-                break Some(ItemImpl::<'a>::new(
+                break Some(Item::<'a>::new(
                     item_id,
                     item,
                     attempt,
@@ -126,7 +126,7 @@ impl<'a, Itr, V, Err, T> Iterator for &'a mut RetryIterImpl<V, Itr, Err, T>
                     self.tracker.add_item_to_in_progress(
                         item_id, item.clone(), attempt + 1,
                     );
-                    break Some(ItemImpl::<'a>::new(
+                    break Some(Item::<'a>::new(
                         item_id,
                         item,
                         attempt + 1,
@@ -140,7 +140,7 @@ impl<'a, Itr, V, Err, T> Iterator for &'a mut RetryIterImpl<V, Itr, Err, T>
                     None => None,
                     Some(value) => {
                         self.tracker.add_item_to_in_progress(item_id, value.clone(), 1);
-                        Some(ItemImpl::<'a>::new(
+                        Some(Item::<'a>::new(
                             item_id,
                             value,
                             1,

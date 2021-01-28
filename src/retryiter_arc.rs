@@ -3,33 +3,62 @@ use std::ops::{Deref, DerefMut};
 
 use uuid::Uuid;
 
-use crate::retryiter::item::ItemImpl;
+use crate::retryiter::item::{Item, ItemMeta};
 use crate::retryiter::RetryIterImpl;
 use crate::retryiter::tracker::{NotExist, Tracker, TrackerImpl};
 use std::sync::{Arc, Mutex};
 use std::mem;
 
+
+#[derive(Debug)]
+pub struct ArcItemMeta<'a, V: Clone, Err> {
+    inner: ItemMeta<'a, V, Err, Arc<Mutex<TrackerImpl<V, Err>>>>
+}
+
+impl<'a, V: Clone, Err> ArcItemMeta<'a, V, Err> {
+    pub fn succeeded(&mut self) -> Result<(), NotExist> {
+        self.inner.succeeded()
+    }
+
+    pub fn failed(&mut self, err: Err) -> Result<(), NotExist> {
+        self.inner.failed(err)
+    }
+
+    pub fn attempt(&self) -> usize {
+        self.inner.attempt
+    }
+}
+
 #[derive(Debug)]
 pub struct ArcItem<'a, V: Clone, Err> {
-    inner: ItemImpl<'a, V, Err, Arc<Mutex<TrackerImpl<V, Err>>>>
+    inner: Item<'a, V, Err, Arc<Mutex<TrackerImpl<V, Err>>>>
 }
 
 impl<'a, V: Clone, Err> ArcItem<'a, V, Err> {
     pub fn new(item_id: Uuid, value: V, attempt: usize,
                tracker: Arc<Mutex<TrackerImpl<V, Err>>>) -> Self {
-        ArcItem { inner: ItemImpl::new(item_id, value, attempt, tracker) }
+        ArcItem { inner: Item::new(item_id, value, attempt, tracker) }
     }
 
     pub fn attempt(&self) -> usize {
-        self.inner.attempt
+        self.inner.meta.attempt
     }
 
     pub fn value(&self) -> &V {
         &self.inner.value
     }
 
-    pub fn into_value(self) -> V {
-        self.inner.value
+    pub fn unpack(self) -> (V, ArcItemMeta<'a, V, Err>) {
+        let (value, meta) = self.inner.unpack();
+        (value, ArcItemMeta { inner: meta })
+    }
+
+    pub fn succeeded(&mut self) -> Result<(), NotExist> {
+        self.inner.succeeded()
+    }
+
+    pub fn failed(&mut self, err: Err) -> Result<(), NotExist> {
+        self.inner.failed(err)
     }
 }
 
@@ -66,16 +95,6 @@ impl<'a, V: Clone, Err> DerefMut for ArcItem<'a, V, Err> {
     }
 }
 
-impl<'a, V: Clone, Err> ArcItem<'a, V, Err> {
-    pub fn succeeded(&mut self) -> Result<(), NotExist> {
-        self.inner.succeeded()
-    }
-
-    pub fn failed(&mut self, err: Err) -> Result<(), NotExist> {
-        self.inner.failed(err)
-    }
-}
-
 impl<'a, V: Clone + PartialEq, Err> PartialEq for ArcItem<'a, V, Err> {
     fn eq(&self, other: &Self) -> bool {
         self.inner == other.inner
@@ -107,7 +126,7 @@ impl<'a, Itr: Iterator<Item=V>, V: Clone, Err> Iterator for &'a mut ArcRetryIter
     fn next(&mut self) -> Option<Self::Item> {
         let mut iter = &mut self.inner;
         if let Some(v) = iter.next() {
-            Some(ArcItem::<'a, V, Err>::new(v.item_id, v.value, v.attempt, v.tracker))
+            Some(ArcItem::<'a, V, Err>::new(v.meta.item_id, v.value, v.meta.attempt, v.meta.tracker))
         } else {
             None
         }

@@ -31,22 +31,49 @@ pub trait IntoRetryIter<V: Clone, Itr: Iterator<Item=V>> {
     /// #[derive(Debug, Clone, PartialEq)]
     /// struct ValueError;
     ///
-    /// let a = [1, 2, 3];
+    /// let a = vec![1, 2, 3];
     ///
     /// // Initializing retryiter with retry count 1.
     /// let mut iter = a.into_iter().retries::<ValueError>(1);
     ///
     /// iter.for_each(|mut item| {
     ///
-    ///     if item == &3 {
+    ///     if item == 3 {
     ///         item.failed(ValueError);
-    ///     } else if item == &2 && item.attempt() == 1 {
+    ///     } else if item == 2 && item.attempt() == 1 {
     ///         item.failed(ValueError);
     ///     }
     ///     item.succeeded();
     /// });
     ///
-    /// assert_eq!(vec![(&3, ValueError)], iter.failed_items())
+    /// assert_eq!(vec![(3, ValueError)], iter.failed_items())
+    /// ```
+    ///
+    /// # Example: Unpack item
+    ///
+    /// ```
+    /// use retryiter::{IntoRetryIter};
+    ///
+    /// #[derive(Debug, Clone, PartialEq)]
+    /// struct ValueError;
+    ///
+    /// let a = vec![1, 2, 3];
+    ///
+    /// // Initializing retryiter with retry count 1.
+    /// let mut iter = a.into_iter().retries::<ValueError>(1);
+    ///
+    /// iter.for_each(|mut item| {
+    ///     let (value, mut meta) = item.unpack();
+    ///
+    ///     if value == 3 {
+    ///         meta.failed(ValueError);
+    ///     } else if value == 2 && meta.attempt() == 1 {
+    ///         meta.failed(ValueError);
+    ///     }
+    ///     meta.succeeded();
+    /// });
+    ///
+    /// assert_eq!(vec![(3, ValueError)], iter.failed_items())
     /// ```
     fn retries<Err: Clone>(self, max_retries: usize) -> RcRetryIter<V, Itr, Err>;
     fn retries_sync<Err: Clone>(self, max_retries: usize) -> ArcRetryIter<V, Itr, Err>;
