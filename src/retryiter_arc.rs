@@ -19,6 +19,18 @@ impl<'a, V: Clone, Err> ArcItem<'a, V, Err> {
                tracker: Arc<Mutex<TrackerImpl<V, Err>>>) -> Self {
         ArcItem { inner: ItemImpl::new(item_id, value, attempt, tracker) }
     }
+
+    pub fn attempt(&self) -> usize {
+        self.inner.attempt
+    }
+
+    pub fn value(&self) -> &V {
+        &self.inner.value
+    }
+
+    pub fn into_value(self) -> V {
+        self.inner.value
+    }
 }
 
 pub struct ArcRetryIter<V: Clone, Itr: Iterator<Item=V>, Err> {
