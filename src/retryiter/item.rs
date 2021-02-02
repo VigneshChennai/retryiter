@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::marker::PhantomData;
 use std::mem::ManuallyDrop;
 use std::ops::Deref;
@@ -58,13 +59,25 @@ impl<'a, V, Err, T: Tracker<V, Err>> Drop for Item<'a, V, Err, T> {
 
 impl<'a, V: PartialEq, Err, T: Tracker<V, Err>> PartialEq for Item<'a, V, Err, T> {
     fn eq(&self, other: &Self) -> bool {
-        self.value == other.value
+        self.value.deref() == other.value.deref()
     }
 }
 
 impl<'a, V: PartialEq, Err, T: Tracker<V, Err>> PartialEq<V> for Item<'a, V, Err, T> {
     fn eq(&self, other: &V) -> bool {
         self.value.deref() == other
+    }
+}
+
+impl<'a, V: PartialOrd, Err, T: Tracker<V, Err>> PartialOrd for Item<'a, V, Err, T> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.value.deref().partial_cmp(other.value.deref())
+    }
+}
+
+impl<'a, V: PartialOrd, Err, T: Tracker<V, Err>> PartialOrd<V> for Item<'a, V, Err, T> {
+    fn partial_cmp(&self, other: &V) -> Option<Ordering> {
+        self.value.deref().partial_cmp(other)
     }
 }
 

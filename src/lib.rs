@@ -1,4 +1,4 @@
-#![deny(missing_docs)]
+//#![deny(missing_docs)]
 
 pub use crate::retryiter::item::{Item, ItemStatus};
 pub use crate::retryiter::tracker::TrackerImpl;
@@ -107,24 +107,10 @@ pub trait IntoRetryIter<V: Clone, Itr: Iterator<Item=V>> {
 
 impl<V: Clone, Itr: Iterator<Item=V>> IntoRetryIter<V, Itr> for Itr {
     fn retries<Err: Clone>(self, max_retries: usize) -> RcRetryIter<V, Itr, Err> {
-        retry_iter(self, max_retries)
+        RcRetryIter::new(self, max_retries)
     }
 
     fn par_retries<Err: Clone>(self, max_retries: usize) -> ArcRetryIter<V, Itr, Err> {
-        retry_iter_par(self, max_retries)
+        ArcRetryIter::new(self, max_retries)
     }
-}
-
-fn retry_iter<V: Clone, Itr: Iterator<Item=V>, Err>(
-    iter: Itr,
-    max_retries: usize,
-) -> RcRetryIter<V, Itr, Err> {
-    RcRetryIter::new(iter, max_retries)
-}
-
-fn retry_iter_par<V: Clone, Itr: Iterator<Item=V>, Err>(
-    iter: Itr,
-    max_retries: usize,
-) -> ArcRetryIter<V, Itr, Err> {
-    ArcRetryIter::new(iter, max_retries)
 }
