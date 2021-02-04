@@ -48,11 +48,13 @@ impl<'a, V, Err, T: Tracker<V, Err>> Drop for Item<'a, V, Err, T> {
         match status {
             ItemStatus::Success | ItemStatus::None => { /* No operation on success */ }
             ItemStatus::Failed(err) => {
-                self.tracker.failed(value, self.attempt, err)
+                if self.tracker.get_max_retries() + 1 > self.attempt {
+                    self.tracker.failed(value, self.attempt, err)
+                } else {
+                    self.tracker.add_item_to_permanent_failure(value, err)
+                }
             }
-            ItemStatus::NotDone => {
-                self.tracker.not_done(value, self.attempt)
-            }
+            ItemStatus::NotDone => self.tracker.not_done(value, self.attempt),
         };
     }
 }
@@ -63,11 +65,13 @@ impl<'a, V: PartialEq, Err, T: Tracker<V, Err>> PartialEq for Item<'a, V, Err, T
     }
 }
 
+
 impl<'a, V: PartialEq, Err, T: Tracker<V, Err>> PartialEq<V> for Item<'a, V, Err, T> {
     fn eq(&self, other: &V) -> bool {
         self.value.deref() == other
     }
 }
+
 
 impl<'a, V: PartialOrd, Err, T: Tracker<V, Err>> PartialOrd for Item<'a, V, Err, T> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
