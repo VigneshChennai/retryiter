@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 pub use crate::retryiter::item::{Item, ItemStatus};
 use crate::retryiter::tracker::Tracker;
 pub use crate::retryiter::tracker::TrackerImpl;
-use crate::retryiter::RetryIterImpl;
+use crate::retryiter::RetryIter;
 
 mod retryiter;
 
@@ -86,26 +86,26 @@ pub trait IntoRetryIter<V, Itr: Iterator<Item = V>> {
     fn retries<Err: Clone>(
         self,
         max_retries: usize,
-    ) -> RetryIterImpl<V, Itr, Err, Rc<RefCell<TrackerImpl<V, Err>>>>;
+    ) -> RetryIter<V, Itr, Err, Rc<RefCell<TrackerImpl<V, Err>>>>;
     fn par_retries<Err: Clone>(
         self,
         max_retries: usize,
-    ) -> RetryIterImpl<V, Itr, Err, Arc<Mutex<TrackerImpl<V, Err>>>>;
+    ) -> RetryIter<V, Itr, Err, Arc<Mutex<TrackerImpl<V, Err>>>>;
 }
 
 impl<V, Itr: Iterator<Item = V>> IntoRetryIter<V, Itr> for Itr {
     fn retries<Err: Clone>(
         self,
         max_retries: usize,
-    ) -> RetryIterImpl<V, Itr, Err, Rc<RefCell<TrackerImpl<V, Err>>>> {
-        RetryIterImpl::new(self, Rc::new(RefCell::new(TrackerImpl::new(max_retries))))
+    ) -> RetryIter<V, Itr, Err, Rc<RefCell<TrackerImpl<V, Err>>>> {
+        RetryIter::new(self, Rc::new(RefCell::new(TrackerImpl::new(max_retries))))
     }
 
     fn par_retries<Err: Clone>(
         self,
         max_retries: usize,
-    ) -> RetryIterImpl<V, Itr, Err, Arc<Mutex<TrackerImpl<V, Err>>>> {
-        RetryIterImpl::new(self, Arc::new(Mutex::new(TrackerImpl::new(max_retries))))
+    ) -> RetryIter<V, Itr, Err, Arc<Mutex<TrackerImpl<V, Err>>>> {
+        RetryIter::new(self, Arc::new(Mutex::new(TrackerImpl::new(max_retries))))
     }
 }
 

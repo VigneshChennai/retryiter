@@ -6,7 +6,7 @@ use tracker::Tracker;
 pub mod item;
 pub mod tracker;
 
-pub struct RetryIterImpl<V, Itr, Err, T>
+pub struct RetryIter<V, Itr, Err, T>
 where
     Itr: Iterator<Item = V>,
     T: Tracker<V, Err> + Clone,
@@ -16,31 +16,24 @@ where
     _marker: PhantomData<Err>,
 }
 
-impl<V, Itr, Err, T> RetryIterImpl<V, Itr, Err, T>
+impl<V, Itr, Err, T> RetryIter<V, Itr, Err, T>
 where
     Itr: Iterator<Item = V>,
     T: Tracker<V, Err> + Clone,
 {
-    pub fn failed_items(self) -> Vec<(V, Option<Err>)> {
-        self.tracker.failed_items()
-    }
-}
-
-impl<V, Itr, Err, T> RetryIterImpl<V, Itr, Err, T>
-where
-    Itr: Iterator<Item = V>,
-    T: Tracker<V, Err> + Clone,
-{
-    pub fn new(iter: Itr, tracker: T) -> RetryIterImpl<V, Itr, Err, T> {
-        RetryIterImpl {
+    pub fn new(iter: Itr, tracker: T) -> RetryIter<V, Itr, Err, T> {
+        RetryIter {
             inner_iter: iter,
             tracker,
             _marker: Default::default(),
         }
     }
+    pub fn failed_items(self) -> Vec<(V, Option<Err>)> {
+        self.tracker.failed_items()
+    }
 }
 
-impl<'a, Itr, V, Err, T> Iterator for &'a mut RetryIterImpl<V, Itr, Err, T>
+impl<'a, Itr, V, Err, T> Iterator for &'a mut RetryIter<V, Itr, Err, T>
 where
     Itr: Iterator<Item = V>,
     T: Tracker<V, Err> + Clone,
