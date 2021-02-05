@@ -13,6 +13,17 @@ pub enum ItemStatus<Err> {
     None,
 }
 
+impl<Err: Clone> Clone for ItemStatus<Err> {
+    fn clone(&self) -> Self {
+        match self {
+            ItemStatus::Success => ItemStatus::Success,
+            ItemStatus::Failed(err) => ItemStatus::Failed(err.clone()),
+            ItemStatus::NotDone => ItemStatus::NotDone,
+            ItemStatus::None => ItemStatus::None
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Item<'a, V, Err, T: Tracker<V, Err>> {
     value: ManuallyDrop<V>,
