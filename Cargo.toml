@@ -1,6 +1,6 @@
 [package]
 name = "retryiter"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Vigneshwaran P <hello@vigneshwaran.me>"]
 edition = "2018"
 description = "A simple wrapper lib on top of rust Iterator with added retry support"
