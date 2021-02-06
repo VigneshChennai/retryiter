@@ -1,2 +1,3 @@
 # retryiter
-A simple wrapper on top of rust's iter with added retry support
+A simple wrapper library on top of rust iterators with added retry support.
+
