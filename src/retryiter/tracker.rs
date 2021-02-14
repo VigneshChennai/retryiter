@@ -2,7 +2,7 @@ pub trait Tracker<I, Err> {
     fn item_from_failed(&mut self) -> Option<(I, usize, Option<Err>)>;
 
     fn add_item_to_failed(&mut self, item: I, attempt: usize, err: Option<Err>);
-    fn add_item_to_permanent_failure(&mut self, item: I, err: Option<Err>);
+    fn add_item_to_permanent_failure(&mut self, item: I, err: Err);
 
     fn get_max_retries(&self) -> usize;
 
@@ -14,14 +14,14 @@ pub trait Tracker<I, Err> {
         self.add_item_to_failed(item, attempt - 1, None)
     }
 
-    fn failed_items(self) -> Vec<(I, Option<Err>)>;
+    fn failed_items(self) -> Vec<(I, Err)>;
 }
 
 #[derive(Debug)]
 pub struct TrackerImpl<I, Err> {
     failed: Vec<(I, usize, Option<Err>)>,
     max_retries: usize,
-    permanent_failure: Vec<(I, Option<Err>)>,
+    permanent_failure: Vec<(I, Err)>,
 }
 
 impl<I, Err> TrackerImpl<I, Err> {
@@ -49,7 +49,7 @@ impl<I, Err> Tracker<I, Err> for TrackerImpl<I, Err> {
         self.failed.push((item, attempt, err))
     }
 
-    fn add_item_to_permanent_failure(&mut self, item: I, err: Option<Err>) {
+    fn add_item_to_permanent_failure(&mut self, item: I, err: Err) {
         self.permanent_failure.push((item, err));
     }
 
@@ -61,7 +61,7 @@ impl<I, Err> Tracker<I, Err> for TrackerImpl<I, Err> {
         self.failed.push((item, attempt, err));
     }
 
-    fn failed_items(self) -> Vec<(I, Option<Err>)> {
+    fn failed_items(self) -> Vec<(I, Err)> {
         self.permanent_failure
     }
 }

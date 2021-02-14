@@ -28,7 +28,7 @@ where
             _marker: Default::default(),
         }
     }
-    pub fn failed_items(self) -> Vec<(V, Option<Err>)> {
+    pub fn failed_items(self) -> Vec<(V, Err)> {
         self.tracker.failed_items()
     }
 }

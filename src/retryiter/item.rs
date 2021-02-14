@@ -8,9 +8,8 @@ use crate::retryiter::tracker::Tracker;
 #[derive(Debug)]
 pub enum ItemStatus<Err> {
     Success,
-    Failed(Option<Err>),
+    Failed(Err),
     NotDone,
-    None,
 }
 
 impl<Err: Clone> Clone for ItemStatus<Err> {
@@ -19,7 +18,6 @@ impl<Err: Clone> Clone for ItemStatus<Err> {
             ItemStatus::Success => ItemStatus::Success,
             ItemStatus::Failed(err) => ItemStatus::Failed(err.clone()),
             ItemStatus::NotDone => ItemStatus::NotDone,
-            ItemStatus::None => ItemStatus::None
         }
     }
 }
@@ -28,7 +26,7 @@ impl<Err: Clone> Clone for ItemStatus<Err> {
 pub struct Item<'a, V, Err, T: Tracker<V, Err>> {
     value: ManuallyDrop<V>,
     attempt: usize,
-    status: ItemStatus<Err>,
+    status: Option<ItemStatus<Err>>,
     tracker: T,
     _marker: PhantomData<Err>,
     _lifetime: PhantomData<&'a ()>,
@@ -39,7 +37,7 @@ impl<'a, V, Err, T: Tracker<V, Err>> Item<'a, V, Err, T> {
         Item {
             value: ManuallyDrop::new(value),
             attempt,
-            status: ItemStatus::None,
+            status: None,
             tracker,
             _marker: Default::default(),
             _lifetime: Default::default(),
@@ -54,23 +52,23 @@ impl<'a, V, Err, T: Tracker<V, Err>> Drop for Item<'a, V, Err, T> {
             // not using the self.value after this statement in this function.
             ManuallyDrop::take(&mut self.value)
         };
-        let status = std::mem::replace(&mut self.status, ItemStatus::None);
+        let status = std::mem::replace(&mut self.status, None);
 
         match status {
-            ItemStatus::Success | ItemStatus::None => { /* No operation on success */ }
-            ItemStatus::Failed(err) => {
+            Some(ItemStatus::Success) | None => { /* No operation on success */ }
+            Some(ItemStatus::Failed(err)) => {
                 if self.tracker.get_max_retries() + 1 > self.attempt {
-                    self.tracker.failed(value, self.attempt, err)
+                    self.tracker.failed(value, self.attempt, Some(err))
                 } else {
                     self.tracker.add_item_to_permanent_failure(value, err)
                 }
             }
-            ItemStatus::NotDone => self.tracker.not_done(value, self.attempt),
+            Some(ItemStatus::NotDone) => self.tracker.not_done(value, self.attempt),
         };
     }
 }
 
-impl<'a, V: PartialEq, Err, T: Tracker<V, Err>> PartialEq for Item<'a, V, Err, T> {
+impl<'a, V: PartialEq, Err, T: Tracker<V, Err>> PartialEq<Self> for Item<'a, V, Err, T> {
     fn eq(&self, other: &Self) -> bool {
         self.value.deref() == other.value.deref()
     }
@@ -82,7 +80,7 @@ impl<'a, V: PartialEq, Err, T: Tracker<V, Err>> PartialEq<V> for Item<'a, V, Err
     }
 }
 
-impl<'a, V: PartialOrd, Err, T: Tracker<V, Err>> PartialOrd for Item<'a, V, Err, T> {
+impl<'a, V: PartialOrd, Err, T: Tracker<V, Err>> PartialOrd<Self> for Item<'a, V, Err, T> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.value.deref().partial_cmp(other.value.deref())
     }
@@ -94,21 +92,29 @@ impl<'a, V: PartialOrd, Err, T: Tracker<V, Err>> PartialOrd<V> for Item<'a, V, E
     }
 }
 
+impl<'a, V: Eq, Err, T: Tracker<V, Err>> Eq for Item<'a, V, Err, T> {}
+
+impl<'a, V: Ord, Err, T: Tracker<V, Err>> Ord for Item<'a, V, Err, T> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.value.deref().cmp(other.value.deref())
+    }
+}
+
 impl<'a, V, Err, T: Tracker<V, Err>> Item<'a, V, Err, T> {
     pub fn attempt(&self) -> usize {
         self.attempt
     }
 
     pub fn succeeded(mut self) {
-        self.status = ItemStatus::Success;
+        self.status = Some(ItemStatus::Success);
     }
 
-    pub fn failed(mut self, err: Option<Err>) {
-        self.status = ItemStatus::Failed(err);
+    pub fn failed(mut self, err: Err) {
+        self.status = Some(ItemStatus::Failed(err));
     }
 
     pub fn set_default(&mut self, status: ItemStatus<Err>) {
-        self.status = status
+        self.status = Some(status)
     }
 }
 
