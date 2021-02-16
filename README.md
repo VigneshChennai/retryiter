@@ -5,11 +5,11 @@ for all **std::iter::Iterator** types. In addition to retries support, the main
 feature of this crate is to preserve the iterator items during 
 **std::future::Future** cancellation in asynchronous processing.
 It is explained with example in
-[Crate's Main Feature](https://docs.rs/retryiter/0.4.2/retryiter/#crates-main-feature)
+[Crate's Main Feature](https://docs.rs/retryiter/#crates-main-feature)
  section.
 ## Documentation
 
-Documentation of this crate available at [doc.rs](https://docs.rs/retryiter/0.4.2/retryiter/index.html)
+Documentation of this crate available at [doc.rs](https://docs.rs/retryiter/)
 
 ## Usage
 
