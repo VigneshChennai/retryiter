@@ -1,3 +1,4 @@
+/// A trait that help tracks the status of items in the Iterator
 pub trait Tracker<I, Err> {
     fn item_from_failed(&mut self) -> Option<(I, usize, Option<Err>)>;
 
@@ -17,6 +18,7 @@ pub trait Tracker<I, Err> {
     fn failed_items(self) -> Vec<(I, Err)>;
 }
 
+/// The default implementation of the [Tracker][crate::Tracker] trait.
 #[derive(Debug)]
 pub struct TrackerImpl<I, Err> {
     failed: Vec<(I, usize, Option<Err>)>,

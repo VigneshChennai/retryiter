@@ -6,9 +6,13 @@ use std::ops::Deref;
 use crate::retryiter::tracker::Tracker;
 
 #[derive(Debug)]
+/// Status indicating the processing status of an [Item][crate::Item]
 pub enum ItemStatus<Err> {
+    /// Processing is successful
     Success,
+    /// Processing is failed
     Failed(Err),
+    /// Processing not completed. Needs to redo.
     NotDone,
 }
 
@@ -22,6 +26,11 @@ impl<Err: Clone> Clone for ItemStatus<Err> {
     }
 }
 
+/// # Item
+///
+/// [Item][crate::Item] is a wrapper type which allow us to mark the processing
+/// status of each item in Iterator.
+///
 #[derive(Debug)]
 pub struct Item<'a, V, Err, T: Tracker<V, Err>> {
     value: ManuallyDrop<V>,
@@ -33,6 +42,7 @@ pub struct Item<'a, V, Err, T: Tracker<V, Err>> {
 }
 
 impl<'a, V, Err, T: Tracker<V, Err>> Item<'a, V, Err, T> {
+    /// Initialized the [Item][crate::Item]
     pub fn new(value: V, attempt: usize, tracker: T) -> Self {
         Item {
             value: ManuallyDrop::new(value),
@@ -44,6 +54,7 @@ impl<'a, V, Err, T: Tracker<V, Err>> Item<'a, V, Err, T> {
         }
     }
 }
+
 
 impl<'a, V, Err, T: Tracker<V, Err>> Drop for Item<'a, V, Err, T> {
     fn drop(&mut self) {
@@ -101,24 +112,30 @@ impl<'a, V: Ord, Err, T: Tracker<V, Err>> Ord for Item<'a, V, Err, T> {
 }
 
 impl<'a, V, Err, T: Tracker<V, Err>> Item<'a, V, Err, T> {
+    /// Returns the current attempt count of the [item][crate::Item]
     pub fn attempt(&self) -> usize {
         self.attempt
     }
 
+    /// Marks the processing of [item][crate::Item] as successful.
     pub fn succeeded(mut self) {
         self.status = Some(ItemStatus::Success);
     }
 
+    /// Marks the processing of [item][crate::Item] as failed.
     pub fn failed(mut self, err: Err) {
         self.status = Some(ItemStatus::Failed(err));
     }
 
+    /// Modifying the default Item status of [item][crate::Item].
     pub fn set_default(&mut self, status: ItemStatus<Err>) {
         self.status = Some(status)
     }
 }
 
 impl<'a, V: Clone, Err, T: Tracker<V, Err>> Item<'a, V, Err, T> {
+    /// Clones the inner value wrapped by the [Item][crate::Item]
+    /// and returns it.
     pub fn value(&self) -> V {
         self.value.deref().clone()
     }
