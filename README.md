@@ -9,7 +9,7 @@ It is explained with example in
  section.
 ## Documentation
 
-Documentation of this create available at [doc.rs](https://docs.rs/retryiter/0.4.0/retryiter/index.html)
+Documentation of this crate available at [doc.rs](https://docs.rs/retryiter/0.4.0/retryiter/index.html)
 
 ## Usage
 
@@ -18,6 +18,36 @@ Add this to your `Cargo.toml`:
 ```toml
 [dependencies]
 retryiter = "0.4"
+```
+
+## Example
+
+```rust
+use retryiter::{IntoRetryIter};
+
+#[derive(Debug, Clone, PartialEq)]
+struct ValueError;
+
+let a = vec![1, 2, 3];
+
+// Initializing retryiter with retry count 1.
+// Also defined the error that can occur in while processing the item.
+let mut iter = a.into_iter().retries::<ValueError>(1);
+
+for item in &mut iter {
+    if item == 3 {
+        // Always failing for value 3.
+        item.failed(ValueError);
+    } else if item < 3 && item.attempt() == 1 {
+        // Only fail on first attempt. The item with value 1 or 2 will
+        // succeed on second attempt.
+        item.failed(ValueError);
+    } else {
+        // Marking success for all the other case.
+        item.succeeded();
+    }
+}
+assert_eq!(vec![(3, ValueError)], iter.failed_items())
 ```
 
 ## License
