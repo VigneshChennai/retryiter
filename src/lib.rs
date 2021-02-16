@@ -270,6 +270,9 @@ pub use crate::retryiter::{
 
 mod retryiter;
 
+type RcTrackerData<V, Err> = Rc<RefCell<TrackerData<V, Err>>>;
+type ArcTrackerData<V, Err> = Arc<Mutex<TrackerData<V, Err>>>;
+
 /// Conversion to [RetryIter][crate::RetryIter]
 pub trait IntoRetryIter<V, Itr: Iterator<Item = V>> {
     /// Instantiates a [RetryIter][crate::RetryIter] which can be used to process
@@ -303,10 +306,7 @@ pub trait IntoRetryIter<V, Itr: Iterator<Item = V>> {
     /// }
     /// assert_eq!(vec![(3, ValueError)], iter.failed_items())
     /// ```
-    fn retries<Err>(
-        self,
-        max_retries: usize,
-    ) -> RetryIter<V, Itr, Err, Rc<RefCell<TrackerData<V, Err>>>>;
+    fn retries<Err>(self, max_retries: usize) -> RetryIter<V, Itr, Err, RcTrackerData<V, Err>>;
 
     /// Instantiates a [RetryIter][crate::RetryIter] which can be used to process
     /// Iterator's Item in parallel threads.
@@ -344,24 +344,19 @@ pub trait IntoRetryIter<V, Itr: Iterator<Item = V>> {
     /// assert_eq!(vec![(3, ValueError)], iter.failed_items())
     /// ```
     ///
-    fn par_retries<Err>(
-        self,
-        max_retries: usize,
-    ) -> RetryIter<V, Itr, Err, Arc<Mutex<TrackerData<V, Err>>>>;
+    fn par_retries<Err>(self, max_retries: usize)
+        -> RetryIter<V, Itr, Err, ArcTrackerData<V, Err>>;
 }
 
 impl<V, Itr: Iterator<Item = V>> IntoRetryIter<V, Itr> for Itr {
-    fn retries<Err>(
-        self,
-        max_retries: usize,
-    ) -> RetryIter<V, Itr, Err, Rc<RefCell<TrackerData<V, Err>>>> {
+    fn retries<Err>(self, max_retries: usize) -> RetryIter<V, Itr, Err, RcTrackerData<V, Err>> {
         RetryIter::new(self, Rc::new(RefCell::new(TrackerData::new(max_retries))))
     }
 
     fn par_retries<Err>(
         self,
         max_retries: usize,
-    ) -> RetryIter<V, Itr, Err, Arc<Mutex<TrackerData<V, Err>>>> {
+    ) -> RetryIter<V, Itr, Err, ArcTrackerData<V, Err>> {
         RetryIter::new(self, Arc::new(Mutex::new(TrackerData::new(max_retries))))
     }
 }
