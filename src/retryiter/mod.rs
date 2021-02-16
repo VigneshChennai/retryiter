@@ -6,6 +6,7 @@ use tracker::Tracker;
 pub mod item;
 pub mod tracker;
 
+/// A generic RetryIter implementation.
 pub struct RetryIter<V, Itr, Err, T>
 where
     Itr: Iterator<Item = V>,
@@ -21,13 +22,15 @@ where
     Itr: Iterator<Item = V>,
     T: Tracker<V, Err> + Clone,
 {
-    pub fn new(iter: Itr, tracker: T) -> RetryIter<V, Itr, Err, T> {
+    pub(crate) fn new(iter: Itr, tracker: T) -> RetryIter<V, Itr, Err, T> {
         RetryIter {
             inner_iter: iter,
             tracker,
             _marker: Default::default(),
         }
     }
+
+    /// Returns all the failed items during processing.
     pub fn failed_items(self) -> Vec<(V, Err)> {
         self.tracker.failed_items()
     }

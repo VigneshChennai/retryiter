@@ -1,6 +1,6 @@
 [package]
 name = "retryiter"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["Vigneshwaran P <hello@vigneshwaran.me>"]
 edition = "2018"
 description = "A simple wrapper lib on top of rust Iterator with added retry support"
@@ -9,6 +9,8 @@ license-file = "LICENSE"
 
 [dependencies]
 
+
 [dev-dependencies]
 tokio = { version="1.1.1", features = ["full"] }
 futures = "0.3.12"
+rayon = "1"

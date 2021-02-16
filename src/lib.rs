@@ -1,18 +1,22 @@
-//#![deny(missing_docs)]
+#![deny(missing_docs)]
 
-//! retryiter is a small helper library which adds retry support to Iterators. It does it
-//! by implementing [IntoRetryIter][crate::IntoRetryIter] for all [std::iter::Iterator] types.
+//! retryiter is a small helper crate which adds retry support to [Iterator][std::iter::Iterator].
+//! It does it by implementing the crate's [IntoRetryIter][crate::IntoRetryIter]
+//! for all [std::iter::Iterator] types. In addition to retries support, the main
+//! feature of this crate is to preserve the iterator items during [Future][std::future::Future]
+//! cancellation in asynchronous processing. It is explained with example in
+//! [Crate's Main Feature](#crates-main-feature)
 //!
 //! The [IntoRetryIter][crate::IntoRetryIter] has two methods
 //!
 //! 1. [retries][crate::IntoRetryIter::retries] - To create a lite
 //!    [RetryIter][crate::RetryIter] which
-//!    can only be used within a single thread.
+//!    can only be used to process Iterator's Item within a single thread.
 //! 2. [par_retries][crate::IntoRetryIter::par_retries] - To create a
 //!    [RetryIter][crate::RetryIter]
 //!    which can be used to process Iterator's Item in parallel threads.
 //!
-//! # Example
+//! #### Example
 //!
 //! ```
 //! use retryiter::{IntoRetryIter};
@@ -26,7 +30,7 @@
 //! // Also defined the error that can occur in while processing the item.
 //! let mut iter = a.into_iter().retries::<ValueError>(1);
 //!
-//! iter.for_each(|mut item| {
+//! for item in &mut iter {
 //!     if item == 3 {
 //!         // Always failing for value 3.
 //!         item.failed(ValueError);
@@ -38,8 +42,7 @@
 //!         // Marking success for all the other case.
 //!         item.succeeded();
 //!     }
-//! });
-//!
+//! }
 //! assert_eq!(vec![(3, ValueError)], iter.failed_items())
 //! ```
 //!
@@ -87,13 +90,12 @@
 //! 2. [failed][crate::Item::failed]
 //!
 //!
-//! # Default Item Status
+//! ### Default Item Status
 //!
 //! When an [Item][crate::Item] neither marked as 'succeeded' or 'failed' during the
 //! processing, then the status is considered as 'succeeded' by default.
-//! The [Item][crate::Item] has a method
-//! ([set_default][crate::Item])
-//! to change this default though.
+//! To change this default, we can use the [Item][crate::Item]'s ([set_default][crate::Item])
+//! method.
 //!
 //! #### Example:
 //!
@@ -201,7 +203,7 @@
 //! // Default set to ItemStatus::Success
 //! let (remaining_input, failed_items) = runtime.block_on(abrupt_future_cancellation(
 //!     vec![1, 2, 3, 4, 5, 6],
-//!     ItemStatus::Success,
+//!     ItemStatus::Succeeded,
 //! ));
 //!
 //! assert_eq!(remaining_input, vec![]); // All input lost
@@ -257,102 +259,110 @@
 //!
 //! ```
 use std::cell::RefCell;
-use std::mem;
-use std::ops::DerefMut;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
-pub use crate::retryiter::item::{Item, ItemStatus};
-pub use crate::retryiter::tracker::Tracker;
-pub use crate::retryiter::tracker::TrackerImpl;
-pub use crate::retryiter::RetryIter;
+use crate::retryiter::tracker::TrackerData;
+pub use crate::retryiter::{
+    item::{Item, ItemStatus},
+    RetryIter,
+};
 
 mod retryiter;
 
+/// Conversion to [RetryIter][crate::RetryIter]
 pub trait IntoRetryIter<V, Itr: Iterator<Item = V>> {
+    /// Instantiates a [RetryIter][crate::RetryIter] which can be used to process
+    /// Iterator's Item only within a single thread.
+    ///  #### Example
+    ///
+    /// ```
+    /// use retryiter::{IntoRetryIter};
+    ///
+    /// #[derive(Debug, Clone, PartialEq)]
+    /// struct ValueError;
+    ///
+    /// let a = vec![1, 2, 3];
+    ///
+    /// // Initializing retryiter with retry count 1.
+    /// // Also defined the error that can occur in while processing the item.
+    /// let mut iter = a.into_iter().retries::<ValueError>(1);
+    ///
+    /// for item in &mut iter {
+    ///     if item == 3 {
+    ///         // Always failing for value 3.
+    ///         item.failed(ValueError);
+    ///     } else if item < 3 && item.attempt() == 1 {
+    ///         // Only fail on first attempt. The item with value 1 or 2 will
+    ///         // succeed on second attempt.
+    ///         item.failed(ValueError);
+    ///     } else {
+    ///         // Marking success for all the other case.
+    ///         item.succeeded();
+    ///     }
+    /// }
+    /// assert_eq!(vec![(3, ValueError)], iter.failed_items())
+    /// ```
     fn retries<Err>(
         self,
         max_retries: usize,
-    ) -> RetryIter<V, Itr, Err, Rc<RefCell<TrackerImpl<V, Err>>>>;
+    ) -> RetryIter<V, Itr, Err, Rc<RefCell<TrackerData<V, Err>>>>;
+
+    /// Instantiates a [RetryIter][crate::RetryIter] which can be used to process
+    /// Iterator's Item in parallel threads.
+    ///
+    /// #### Example
+    ///
+    /// ```
+    /// use retryiter::{IntoRetryIter, Item};
+    /// use std::thread;
+    /// use rayon::iter::{ParallelIterator, ParallelBridge};
+    ///
+    /// #[derive(Debug, Clone, PartialEq)]
+    /// struct ValueError;
+    ///
+    /// let a = (0..100);
+    ///
+    /// // Initializing retryiter with retry count 1.
+    /// // Also defined the error that can occur in while processing the item.
+    /// let mut iter = a.into_iter().par_retries::<ValueError>(1);
+    ///
+    /// (&mut iter).par_bridge().for_each(|item| {
+    ///     if item == 3 {
+    ///         // Always failing for value 3.
+    ///         item.failed(ValueError);
+    ///     } else if item < 3 && item.attempt() == 1 {
+    ///         // Only fail on first attempt. The item with value 1 or 2 will
+    ///         // succeed on second attempt.
+    ///         item.failed(ValueError);
+    ///     } else {
+    ///         // Marking success for all the other case.
+    ///         item.succeeded();
+    ///     }
+    /// });
+    ///
+    /// assert_eq!(vec![(3, ValueError)], iter.failed_items())
+    /// ```
+    ///
     fn par_retries<Err>(
         self,
         max_retries: usize,
-    ) -> RetryIter<V, Itr, Err, Arc<Mutex<TrackerImpl<V, Err>>>>;
+    ) -> RetryIter<V, Itr, Err, Arc<Mutex<TrackerData<V, Err>>>>;
 }
 
 impl<V, Itr: Iterator<Item = V>> IntoRetryIter<V, Itr> for Itr {
     fn retries<Err>(
         self,
         max_retries: usize,
-    ) -> RetryIter<V, Itr, Err, Rc<RefCell<TrackerImpl<V, Err>>>> {
-        RetryIter::new(self, Rc::new(RefCell::new(TrackerImpl::new(max_retries))))
+    ) -> RetryIter<V, Itr, Err, Rc<RefCell<TrackerData<V, Err>>>> {
+        RetryIter::new(self, Rc::new(RefCell::new(TrackerData::new(max_retries))))
     }
 
     fn par_retries<Err>(
         self,
         max_retries: usize,
-    ) -> RetryIter<V, Itr, Err, Arc<Mutex<TrackerImpl<V, Err>>>> {
-        RetryIter::new(self, Arc::new(Mutex::new(TrackerImpl::new(max_retries))))
-    }
-}
-
-impl<V, Err> Tracker<V, Err> for Arc<Mutex<TrackerImpl<V, Err>>> {
-    #[inline]
-    fn item_from_failed(&mut self) -> Option<(V, usize, Option<Err>)> {
-        self.lock().expect("Lock poisoned").item_from_failed()
-    }
-
-    #[inline]
-    fn add_item_to_failed(&mut self, item: V, attempt: usize, err: Option<Err>) {
-        self.lock()
-            .expect("Lock poisoned")
-            .add_item_to_failed(item, attempt, err)
-    }
-
-    #[inline]
-    fn add_item_to_permanent_failure(&mut self, item: V, err: Err) {
-        self.lock()
-            .expect("Lock poisoned")
-            .add_item_to_permanent_failure(item, err)
-    }
-
-    #[inline]
-    fn get_max_retries(&self) -> usize {
-        self.lock().expect("Lock poisoned").get_max_retries()
-    }
-
-    fn failed_items(self) -> Vec<(V, Err)> {
-        let mut guard = self.lock().expect("Lock poisoned");
-        let tracker = mem::replace(guard.deref_mut(), Default::default());
-
-        return tracker.failed_items();
-    }
-}
-
-impl<V, Err> Tracker<V, Err> for Rc<RefCell<TrackerImpl<V, Err>>> {
-    #[inline]
-    fn item_from_failed(&mut self) -> Option<(V, usize, Option<Err>)> {
-        self.borrow_mut().item_from_failed()
-    }
-
-    #[inline]
-    fn add_item_to_failed(&mut self, item: V, attempt: usize, err: Option<Err>) {
-        self.borrow_mut().add_item_to_failed(item, attempt, err)
-    }
-
-    #[inline]
-    fn add_item_to_permanent_failure(&mut self, item: V, err: Err) {
-        self.borrow_mut().add_item_to_permanent_failure(item, err)
-    }
-
-    #[inline]
-    fn get_max_retries(&self) -> usize {
-        self.borrow().get_max_retries()
-    }
-
-    #[inline]
-    fn failed_items(self) -> Vec<(V, Err)> {
-        self.replace(Default::default()).failed_items()
+    ) -> RetryIter<V, Itr, Err, Arc<Mutex<TrackerData<V, Err>>>> {
+        RetryIter::new(self, Arc::new(Mutex::new(TrackerData::new(max_retries))))
     }
 }
 
@@ -470,7 +480,7 @@ mod test_async_future_cancellation {
                     item.set_default(match default_status {
                         "failed" => ItemStatus::Failed(ValueError),
                         "not_done" => ItemStatus::NotDone,
-                        _ => ItemStatus::Success,
+                        _ => ItemStatus::Succeeded,
                     });
                     tokio::time::sleep(Duration::from_secs(45))
                 });

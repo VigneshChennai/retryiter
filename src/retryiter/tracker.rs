@@ -1,4 +1,9 @@
-/// A trait that help tracks the status of items in the Iterator
+use std::cell::RefCell;
+use std::mem;
+use std::ops::DerefMut;
+use std::rc::Rc;
+use std::sync::{Arc, Mutex};
+
 pub trait Tracker<I, Err> {
     fn item_from_failed(&mut self) -> Option<(I, usize, Option<Err>)>;
 
@@ -18,17 +23,16 @@ pub trait Tracker<I, Err> {
     fn failed_items(self) -> Vec<(I, Err)>;
 }
 
-/// The default implementation of the [Tracker][crate::Tracker] trait.
 #[derive(Debug)]
-pub struct TrackerImpl<I, Err> {
+pub struct TrackerData<I, Err> {
     failed: Vec<(I, usize, Option<Err>)>,
     max_retries: usize,
     permanent_failure: Vec<(I, Err)>,
 }
 
-impl<I, Err> TrackerImpl<I, Err> {
-    pub fn new(max_retries: usize) -> TrackerImpl<I, Err> {
-        TrackerImpl {
+impl<I, Err> TrackerData<I, Err> {
+    pub(crate) fn new(max_retries: usize) -> TrackerData<I, Err> {
+        TrackerData {
             failed: vec![],
             max_retries,
             permanent_failure: vec![],
@@ -36,34 +40,64 @@ impl<I, Err> TrackerImpl<I, Err> {
     }
 }
 
-impl<I, Err> Default for TrackerImpl<I, Err> {
-    fn default() -> Self {
-        TrackerImpl::new(0)
+impl<V, Err> Tracker<V, Err> for Arc<Mutex<TrackerData<V, Err>>> {
+    #[inline]
+    fn item_from_failed(&mut self) -> Option<(V, usize, Option<Err>)> {
+        self.lock().expect("Lock poisoned").failed.pop()
+    }
+
+    #[inline]
+    fn add_item_to_failed(&mut self, item: V, attempt: usize, err: Option<Err>) {
+        self.lock()
+            .expect("Lock poisoned")
+            .failed
+            .push((item, attempt, err))
+    }
+
+    #[inline]
+    fn add_item_to_permanent_failure(&mut self, item: V, err: Err) {
+        self.lock()
+            .expect("Lock poisoned")
+            .permanent_failure
+            .push((item, err));
+    }
+
+    #[inline]
+    fn get_max_retries(&self) -> usize {
+        self.lock().expect("Lock poisoned").max_retries
+    }
+
+    fn failed_items(self) -> Vec<(V, Err)> {
+        let mut guard = self.lock().expect("Lock poisoned");
+        let tracker = mem::replace(guard.deref_mut(), TrackerData::new(0));
+
+        tracker.permanent_failure
     }
 }
 
-impl<I, Err> Tracker<I, Err> for TrackerImpl<I, Err> {
-    fn item_from_failed(&mut self) -> Option<(I, usize, Option<Err>)> {
-        self.failed.pop()
+impl<V, Err> Tracker<V, Err> for Rc<RefCell<TrackerData<V, Err>>> {
+    #[inline]
+    fn item_from_failed(&mut self) -> Option<(V, usize, Option<Err>)> {
+        self.borrow_mut().failed.pop()
     }
 
-    fn add_item_to_failed(&mut self, item: I, attempt: usize, err: Option<Err>) {
-        self.failed.push((item, attempt, err))
+    #[inline]
+    fn add_item_to_failed(&mut self, item: V, attempt: usize, err: Option<Err>) {
+        self.borrow_mut().failed.push((item, attempt, err))
     }
 
-    fn add_item_to_permanent_failure(&mut self, item: I, err: Err) {
-        self.permanent_failure.push((item, err));
+    #[inline]
+    fn add_item_to_permanent_failure(&mut self, item: V, err: Err) {
+        self.borrow_mut().permanent_failure.push((item, err));
     }
 
+    #[inline]
     fn get_max_retries(&self) -> usize {
-        self.max_retries
+        self.borrow().max_retries
     }
 
-    fn failed(&mut self, item: I, attempt: usize, err: Option<Err>) {
-        self.failed.push((item, attempt, err));
-    }
-
-    fn failed_items(self) -> Vec<(I, Err)> {
-        self.permanent_failure
+    #[inline]
+    fn failed_items(self) -> Vec<(V, Err)> {
+        self.replace(TrackerData::new(0)).permanent_failure
     }
 }

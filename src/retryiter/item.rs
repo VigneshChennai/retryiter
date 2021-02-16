@@ -5,25 +5,42 @@ use std::ops::Deref;
 
 use crate::retryiter::tracker::Tracker;
 
-#[derive(Debug)]
-/// Status indicating the processing status of an [Item][crate::Item]
+#[derive(Debug, Clone)]
+/// Status flag indicating the processed status of an [Item][crate::Item].
+/// The only place we might be using it is while setting the default
+/// status of an Item.
+///
+/// ## Example
+///
+/// ```
+/// use retryiter::{IntoRetryIter, ItemStatus};
+///
+/// #[derive(Debug, Clone, PartialEq)]
+/// struct ValueError;
+///
+/// let a = vec![1, 2, 3];
+///
+/// // Initializing retryiter with retry count 1.
+/// // Also defined the error that can occur in while processing the item.
+/// let mut iter = a.into_iter().retries::<ValueError>(1);
+///
+/// iter.for_each(|mut item| {
+///     item.set_default(ItemStatus::Failed(ValueError));
+///
+///     if item < 3 {
+///         item.succeeded();
+///     }
+///     // We don't now have to mark `failed` for all the other cases as we
+///     // have set the default
+/// });
+/// ```
 pub enum ItemStatus<Err> {
     /// Processing is successful
-    Success,
+    Succeeded,
     /// Processing is failed
     Failed(Err),
-    /// Processing not completed. Needs to redo.
+    /// Processing is incomplete. Needs to redo.
     NotDone,
-}
-
-impl<Err: Clone> Clone for ItemStatus<Err> {
-    fn clone(&self) -> Self {
-        match self {
-            ItemStatus::Success => ItemStatus::Success,
-            ItemStatus::Failed(err) => ItemStatus::Failed(err.clone()),
-            ItemStatus::NotDone => ItemStatus::NotDone,
-        }
-    }
 }
 
 /// # Item
@@ -43,7 +60,7 @@ pub struct Item<'a, V, Err, T: Tracker<V, Err>> {
 
 impl<'a, V, Err, T: Tracker<V, Err>> Item<'a, V, Err, T> {
     /// Initialized the [Item][crate::Item]
-    pub fn new(value: V, attempt: usize, tracker: T) -> Self {
+    pub(crate) fn new(value: V, attempt: usize, tracker: T) -> Self {
         Item {
             value: ManuallyDrop::new(value),
             attempt,
@@ -55,7 +72,6 @@ impl<'a, V, Err, T: Tracker<V, Err>> Item<'a, V, Err, T> {
     }
 }
 
-
 impl<'a, V, Err, T: Tracker<V, Err>> Drop for Item<'a, V, Err, T> {
     fn drop(&mut self) {
         let value = unsafe {
@@ -66,7 +82,7 @@ impl<'a, V, Err, T: Tracker<V, Err>> Drop for Item<'a, V, Err, T> {
         let status = std::mem::replace(&mut self.status, None);
 
         match status {
-            Some(ItemStatus::Success) | None => { /* No operation on success */ }
+            Some(ItemStatus::Succeeded) | None => { /* No operation on success */ }
             Some(ItemStatus::Failed(err)) => {
                 if self.tracker.get_max_retries() + 1 > self.attempt {
                     self.tracker.failed(value, self.attempt, Some(err))
@@ -119,7 +135,7 @@ impl<'a, V, Err, T: Tracker<V, Err>> Item<'a, V, Err, T> {
 
     /// Marks the processing of [item][crate::Item] as successful.
     pub fn succeeded(mut self) {
-        self.status = Some(ItemStatus::Success);
+        self.status = Some(ItemStatus::Succeeded);
     }
 
     /// Marks the processing of [item][crate::Item] as failed.
