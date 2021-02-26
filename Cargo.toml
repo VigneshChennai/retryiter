@@ -4,7 +4,7 @@ version = "0.4.3"
 authors = ["Vigneshwaran P <hello@vigneshwaran.me>"]
 edition = "2018"
 description = "A wrapper lib on top of rust Iterator with added retry support"
-license = "MIT License"
+license = "MIT"
 repository = "https://github.com/VigneshChennai/retryiter"
 
 [dependencies]
