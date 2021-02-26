@@ -2,7 +2,7 @@
 
 //! retryiter crate adds retry support for all [Iterator][std::iter::Iterator] types.
 //! It does it by implementing the crate's [IntoRetryIter][crate::IntoRetryIter]
-//! for all [std::iter::Iterator] types. In addition to retries support, the main
+//! for all [std::iter::Iterator]. In addition to retries support, the main
 //! feature of this crate is to preserve the iterator items during [Future][std::future::Future]
 //! cancellation in asynchronous processing. It is explained with example in
 //! [Crate's Main Feature](#crates-main-feature)

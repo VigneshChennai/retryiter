@@ -1,12 +1,18 @@
 # RetryIter
-RetryIter is a small helper crate which adds retry support to **std::iter::Iterator.**
+[![Crates.io](https://img.shields.io/crates/v/retryiter.svg)](https://crates.io/crates/retryiter)
+[![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/VigneshChennai/retryiter/blob/main/README.md)
+[![Actions Status](https://github.com/vigneshchennai/retryiter/workflows/CI/badge.svg)](https://github.com/vigneshchennai/retryiter/actions)
+
+
+RetryIter crate adds retry support for all **std::iter::Iterator** types.
 It does it by implementing the crate's **IntoRetryIter**
-for all **std::iter::Iterator** types. In addition to retries support, the main
+for all **std::iter::Iterator**. In addition to retries support, the main
 feature of this crate is to preserve the iterator items during 
 **std::future::Future** cancellation in asynchronous processing.
 It is explained with example in
 [Crate's Main Feature](https://docs.rs/retryiter/#crates-main-feature)
  section.
+
 ## Documentation
 
 Documentation of this crate available at [doc.rs](https://docs.rs/retryiter/)
