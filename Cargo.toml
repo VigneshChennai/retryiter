@@ -1,16 +1,13 @@
 [package]
 name = "retryiter"
-version = "0.4.2"
+version = "0.4.3"
 authors = ["Vigneshwaran P <hello@vigneshwaran.me>"]
 edition = "2018"
-description = "A simple wrapper lib on top of rust Iterator with added retry support"
-license-file = "LICENSE"
+description = "A wrapper lib on top of rust Iterator with added retry support"
+license = "MIT License"
 repository = "https://github.com/VigneshChennai/retryiter"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-
 
 [dev-dependencies]
 tokio = { version="1.1.1", features = ["full"] }

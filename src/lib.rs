@@ -1,6 +1,6 @@
 #![deny(missing_docs)]
 
-//! retryiter is a small helper crate which adds retry support to [Iterator][std::iter::Iterator].
+//! retryiter crate adds retry support for all [Iterator][std::iter::Iterator] types.
 //! It does it by implementing the crate's [IntoRetryIter][crate::IntoRetryIter]
 //! for all [std::iter::Iterator] types. In addition to retries support, the main
 //! feature of this crate is to preserve the iterator items during [Future][std::future::Future]
@@ -48,7 +48,7 @@
 //!
 //! There are few things that requires more explanation in the above example.
 //!
-//! **First** `let mut iter = a.into_iter().retries::<ValueError>(1)` line. We here initializing
+//! **First** ```let mut iter = a.into_iter().retries::<ValueError>(1)``` : We here initializing
 //! the retryiter with retry count as 1 and also defining the possible error that can occur during
 //! processing of iterator's items, as `ValueError`. But there is no constrained set on the
 //! Error type. So, if we don't want to capture
@@ -63,8 +63,8 @@
 //! let mut _iter = a.into_iter().retries::<()>(1);
 //! ```
 //!
-//! **Second** is this line `iter.for_each(|mut item| {`.
-//! `item` variable here is a wrapper type [Item][crate::Item] which wraps
+//! **Second** `iter.for_each(|mut item| {`:
+//! item variable here is a wrapper type [Item][crate::Item] which wraps
 //! the item of type i32 (in our example) in original iter.
 //! The [Item][crate::Item] implements both Deref and DerefMut,
 //! also implements PartialEq, PartialOrd, Eq and Ord if the original iterator's item
@@ -83,7 +83,8 @@
 //! # Item
 //!
 //! [Item][crate::Item] is a wrapper type which allow us to mark the processing
-//! status of each item in Iterator. [Item][crate::Item] has below two methods which
+//! status of each item in Iterator. [Item][crate::Item] has few use full methods. Among them
+//! below two methods are important which
 //! allow us to mark the status.
 //!
 //! 1. [succeeded][crate::Item::succeeded]
@@ -148,15 +149,15 @@
 //! ```
 //!
 //! But this crate has one additional feature.
-//! In addition to "succeeded" and "failed", there is a third status called "not done".
-//! When an [Item][crate::Item] is marked as "not done", it will be retried again like how it will
+//! In addition to ["succeeded"][ItemStatus::Succeeded] and ["failed"][ItemStatus::Failed], there is a third status called ["not done"][ItemStatus::NotDone].
+//! When an [Item][crate::Item] is marked as ["not done"][ItemStatus::NotDone], it will be retried again like how it will
 //! happen when the status is set to "failed" but without
 //! increasing the attempt count.
 //!
 //! It is not be very useful in synchronous code but when it come to asynchronous
 //! code, it will be very handy during [std::future::Future] cancellations/drop.
 //!
-//! Look at the example below to under the behaviour with different default [crate::Item] status
+//! Look at the example below to under the behaviour with different default [Item][crate::Item] status
 //! during [std::future::Future] cancellation.
 //!
 //! ```
@@ -210,7 +211,7 @@
 //! // The items which where in progress are not marked as failure as well.
 //! assert_eq!(failed_items, vec![]);
 //!
-//! // Default set to ItemStatus::Failed(None)
+//! // Default set to ItemStatus::Failed(())
 //! let (remaining_input, failed_items) = runtime.block_on(abrupt_future_cancellation(
 //!     vec![1, 2, 3, 4, 5, 6],
 //!     ItemStatus::Failed(()),
@@ -358,6 +359,41 @@ impl<V, Itr: Iterator<Item = V>> IntoRetryIter<V, Itr> for Itr {
         max_retries: usize,
     ) -> RetryIter<V, Itr, Err, ArcTrackerData<V, Err>> {
         RetryIter::new(self, Arc::new(Mutex::new(TrackerData::new(max_retries))))
+    }
+}
+
+#[cfg(test)]
+mod non_cloneable_types {
+    use crate::IntoRetryIter;
+
+    #[test]
+    fn no_copy_clone_input_test() {
+        #[derive(Debug, PartialEq, PartialOrd)]
+        struct Input(i32);
+
+        #[derive(Debug, PartialEq)]
+        struct ValueError;
+
+        let a = vec![Input(1), Input(2), Input(3)];
+
+        // Initializing retryiter with retry count 1.
+        // Also defined the error that can occur in while processing the item.
+        let mut iter = a.into_iter().retries::<ValueError>(1);
+
+        for item in &mut iter {
+            if item == Input(3) {
+                // Always failing for value 3.
+                item.failed(ValueError);
+            } else if item < Input(3) && item.attempt() == 1 {
+                // Only fail on first attempt. The item with value 1 or 2 will
+                // succeed on second attempt.
+                item.failed(ValueError);
+            } else {
+                // Marking success for all the other case.
+                item.succeeded();
+            }
+        }
+        assert_eq!(vec![(Input(3), ValueError)], iter.failed_items())
     }
 }
 
